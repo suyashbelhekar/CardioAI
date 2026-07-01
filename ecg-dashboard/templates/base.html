@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}ECG Arrhythmia Detector{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-icon"><i class="fas fa-heartbeat"></i></div>
+    <div>
+      <div class="brand-name">CardioAI</div>
+      <div class="brand-sub">Arrhythmia Detection</div>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">MAIN</div>
+    <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+      <i class="fas fa-chart-line"></i><span>Dashboard</span>
+    </a>
+    <a href="/analyze" class="nav-item {% if request.path == '/analyze' %}active{% endif %}">
+      <i class="fas fa-upload"></i><span>Analyze ECG</span>
+    </a>
+    <a href="/results" class="nav-item {% if request.path == '/results' %}active{% endif %}">
+      <i class="fas fa-microscope"></i><span>Results</span>
+    </a>
+    <a href="/report" class="nav-item {% if request.path == '/report' %}active{% endif %}">
+      <i class="fas fa-file-medical"></i><span>Report</span>
+    </a>
+    
+    <div class="nav-section-label" style="margin-top:20px;">PATIENTS</div>
+    <a href="/patients" class="nav-item {% if '/patients' in request.path %}active{% endif %}">
+      <i class="fas fa-users"></i><span>Patient List</span>
+    </a>
+    <a href="/patients/add" class="nav-item {% if request.path == '/patients/add' %}active{% endif %}">
+      <i class="fas fa-user-plus"></i><span>Add Patient</span>
+    </a>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    {% if session.get('doctor_id') %}
+    <div style="padding:10px 12px;background:#f1f5f9;border-radius:8px;margin-bottom:8px;">
+      <div style="font-size:.82rem;font-weight:700;color:#1e293b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        <i class="fas fa-user-md" style="color:#3b82f6;"></i> {{ session.get('doctor_name','Doctor') }}
+      </div>
+      <div style="font-size:.72rem;color:#94a3b8;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ session.get('doctor_email','') }}
+      </div>
+    </div>
+    <a href="/logout" style="display:block;padding:8px;background:#fef2f2;color:#dc2626;border-radius:7px;
+       text-align:center;text-decoration:none;font-size:.82rem;font-weight:600;">
+      <i class="fas fa-sign-out-alt"></i> Logout
+    </a>
+    {% else %}
+    <div class="model-badge">
+      <i class="fas fa-circle" style="color:#22c55e;font-size:8px"></i>
+      Model Active
+    </div>
+    {% endif %}
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main-wrap">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h2 class="page-title">{% block page_title %}Dashboard{% endblock %}</h2>
+      <span class="page-sub">{% block page_sub %}{% endblock %}</span>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-badge"><i class="fas fa-shield-heart"></i> AI-Powered Analysis</div>
+      <div class="topbar-badge"><i class="fas fa-clock"></i> Real-time</div>
+    </div>
+  </header>
+
+  <main class="page-content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

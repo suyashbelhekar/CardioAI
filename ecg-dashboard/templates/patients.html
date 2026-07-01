@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Patients — CardioAI{% endblock %}
+{% block page_title %}Patient List{% endblock %}
+{% block page_sub %}Manage and monitor your patients{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="fas fa-users"></i></div>
+    <div><div class="stat-val">{{ patients|length }}</div><div class="stat-lbl">Total Patients</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;color:#22c55e;"><i class="fas fa-calendar-check"></i></div>
+    <div><div class="stat-val">{{ recent_count }}</div><div class="stat-lbl">Added (30 days)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;color:#ef4444;"><i class="fas fa-heartbeat"></i></div>
+    <div><div class="stat-val">{{ high_risk_count }}</div><div class="stat-lbl">High Risk</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;"><i class="fas fa-file-waveform"></i></div>
+    <div><div class="stat-val">{{ total_records }}</div><div class="stat-lbl">ECG Records</div></div>
+  </div>
+</div>
+
+<!-- Toolbar -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:12px;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <input id="q" type="text" placeholder="Search by name, disease, mobile…"
+           style="padding:10px 16px;border:1px solid #e2e8f0;border-radius:8px;width:280px;font-size:.9rem;">
+  </div>
+  <a href="/patients/add" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add Patient</a>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="background:#f8fafc;border-bottom:2px solid #e2e8f0;">
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;white-space:nowrap;">#</th>
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;">Patient Name</th>
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;">Disease</th>
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;">Mobile</th>
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;">Address</th>
+          <th style="padding:12px 14px;text-align:left;font-size:.82rem;font-weight:700;color:#64748b;">Last Visit</th>
+          <th style="padding:12px 14px;text-align:center;font-size:.82rem;font-weight:700;color:#64748b;">ECGs</th>
+          <th style="padding:12px 14px;text-align:center;font-size:.82rem;font-weight:700;color:#64748b;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        {% for p in patients %}
+        <tr class="pr" style="border-bottom:1px solid #f1f5f9;transition:background .15s;">
+          <td style="padding:13px 14px;font-size:.85rem;color:#94a3b8;">{{ loop.index }}</td>
+          <td style="padding:13px 14px;">
+            <div style="font-weight:600;color:#1e293b;font-size:.95rem;">{{ p.full_name }}</div>
+            <div style="font-size:.78rem;color:#94a3b8;margin-top:2px;">{{ p.email or '—' }}</div>
+          </td>
+          <td style="padding:13px 14px;">
+            {% if p.disease %}
+            <span style="padding:3px 10px;border-radius:12px;font-size:.78rem;font-weight:600;background:#fef2f2;color:#dc2626;">{{ p.disease }}</span>
+            {% else %}<span style="color:#cbd5e1;font-size:.85rem;">—</span>{% endif %}
+          </td>
+          <td style="padding:13px 14px;font-size:.88rem;color:#475569;">{{ p.mobile_no or '—' }}</td>
+          <td style="padding:13px 14px;font-size:.82rem;color:#64748b;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ p.address or '—' }}</td>
+          <td style="padding:13px 14px;font-size:.82rem;color:#64748b;">
+            {% if p.appointments %}{{ p.appointments[0].date[:10] }}
+            {% else %}<span style="color:#cbd5e1;">No visits</span>{% endif %}
+          </td>
+          <td style="padding:13px 14px;text-align:center;">
+            <span style="padding:3px 10px;border-radius:8px;font-size:.8rem;font-weight:600;background:#eff6ff;color:#3b82f6;">{{ p.ecg_records|length }}</span>
+          </td>
+          <td style="padding:13px 14px;text-align:center;">
+            <a href="/patients/{{ p.id }}" class="btn btn-primary"
+               style="padding:6px 14px;font-size:.82rem;text-decoration:none;display:inline-block;">
+              <i class="fas fa-eye"></i> View Profile
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="padding:50px;text-align:center;color:#94a3b8;">
+          <i class="fas fa-users" style="font-size:2.5rem;opacity:.25;display:block;margin-bottom:12px;"></i>
+          No patients yet — <a href="/patients/add" style="color:#3b82f6;">add your first patient</a>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+document.getElementById('q').addEventListener('input', function(){
+  const v = this.value.toLowerCase();
+  document.querySelectorAll('.pr').forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(v) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

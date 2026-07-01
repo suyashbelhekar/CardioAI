@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign Up — CardioAI</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{min-height:100vh;display:flex;align-items:center;justify-content:center;
+         background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 60%,#1d4ed8 100%);
+         font-family:'Segoe UI',sans-serif;padding:20px;}
+    .card{background:#fff;border-radius:20px;box-shadow:0 24px 64px rgba(0,0,0,.25);
+          width:100%;max-width:540px;padding:44px 40px;}
+    .logo{width:66px;height:66px;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+          border-radius:16px;display:flex;align-items:center;justify-content:center;
+          margin:0 auto 18px;font-size:1.9rem;color:#fff;}
+    h1{text-align:center;font-size:1.6rem;color:#1e293b;margin-bottom:5px;}
+    .sub{text-align:center;color:#64748b;font-size:.88rem;margin-bottom:28px;}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+    .field{margin-bottom:18px;}
+    label{display:block;font-size:.83rem;font-weight:600;color:#475569;margin-bottom:6px;}
+    .inp-wrap{position:relative;}
+    .inp-wrap i{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.85rem;}
+    input,select,textarea{width:100%;padding:11px 13px 11px 38px;border:2px solid #e2e8f0;
+          border-radius:8px;font-size:.88rem;transition:border .2s;font-family:inherit;}
+    select,textarea{padding-left:13px;}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+    .btn{width:100%;padding:12px;background:linear-gradient(135deg,#2563eb,#1d4ed8);
+         color:#fff;border:none;border-radius:9px;font-size:.97rem;font-weight:600;
+         cursor:pointer;transition:transform .15s,box-shadow .15s;margin-top:4px;}
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(37,99,235,.35);}
+    .link{text-align:center;margin-top:20px;font-size:.88rem;color:#64748b;}
+    .link a{color:#2563eb;font-weight:600;text-decoration:none;}
+    .link a:hover{text-decoration:underline;}
+    .alert{padding:11px 15px;border-radius:8px;margin-bottom:16px;font-size:.86rem;
+           background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><i class="fas fa-user-md"></i></div>
+  <h1>Create Doctor Account</h1>
+  <p class="sub">Join CardioAI as a healthcare professional</p>
+
+  {% if error %}<div class="alert"><i class="fas fa-exclamation-circle"></i> {{ error }}</div>{% endif %}
+
+  <form method="POST">
+    <div class="field">
+      <label>Full Name *</label>
+      <div class="inp-wrap">
+        <i class="fas fa-user"></i>
+        <input type="text" name="full_name" placeholder="Dr. Jane Smith" required autofocus>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Username *</label>
+        <div class="inp-wrap">
+          <i class="fas fa-at"></i>
+          <input type="text" name="username" placeholder="drjane" required>
+        </div>
+      </div>
+      <div class="field">
+        <label>Email *</label>
+        <div class="inp-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="email" name="email" placeholder="jane@hospital.com" required>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Password *</label>
+        <div class="inp-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" name="password" placeholder="Min 6 chars" required minlength="6">
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm Password *</label>
+        <div class="inp-wrap">
+          <i class="fas fa-lock"></i>
+          <input type="password" name="confirm_password" placeholder="Repeat password" required minlength="6">
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>Specialization</label>
+        <div class="inp-wrap">
+          <i class="fas fa-stethoscope"></i>
+          <input type="text" name="specialization" placeholder="Cardiologist">
+        </div>
+      </div>
+      <div class="field">
+        <label>License Number</label>
+        <div class="inp-wrap">
+          <i class="fas fa-id-card"></i>
+          <input type="text" name="license_number" placeholder="MED-12345">
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Phone</label>
+      <div class="inp-wrap">
+        <i class="fas fa-phone"></i>
+        <input type="tel" name="phone" placeholder="+1 555 123 4567">
+      </div>
+    </div>
+
+    <button class="btn" type="submit"><i class="fas fa-user-plus"></i> Create Account</button>
+  </form>
+
+  <p class="link">Already have an account? <a href="/login">Sign in</a></p>
+</div>
+</body>
+</html>

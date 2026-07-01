@@ -1,0 +1,241 @@
+﻿{% extends "base.html" %}
+{% block title %}Dashboard — CardioAI{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_sub %}Welcome, Dr. {{ session.get('doctor_name', 'Doctor') }}{% endblock %}
+
+{% block content %}
+<style>
+@keyframes fadeUp  { from{opacity:0;transform:translateY(22px)} to{opacity:1;transform:translateY(0)} }
+@keyframes pulse-g { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.3);opacity:.6} }
+@keyframes wave    { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(1.7)} }
+
+.fu  { animation:fadeUp .5s ease both; }
+.fu:nth-child(1){animation-delay:.04s} .fu:nth-child(2){animation-delay:.10s}
+.fu:nth-child(3){animation-delay:.16s} .fu:nth-child(4){animation-delay:.22s}
+.fu:nth-child(5){animation-delay:.28s} .fu:nth-child(6){animation-delay:.34s}
+
+/* Hero */
+.hero{background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 55%,#1d4ed8 100%);
+  border-radius:20px;padding:38px 34px;color:white;margin-bottom:26px;
+  position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:-70px;right:-70px;width:260px;height:260px;
+  border-radius:50%;background:rgba(99,102,241,.15);}
+.hero-title{font-size:1.65rem;font-weight:800;margin-bottom:8px;line-height:1.3;}
+.hero-sub{opacity:.82;font-size:.9rem;max-width:500px;line-height:1.75;margin-bottom:20px;}
+.hero-btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);
+  border-radius:9px;color:white;text-decoration:none;font-weight:600;font-size:.88rem;
+  transition:background .2s,transform .15s;}
+.hero-btn:hover{background:rgba(255,255,255,.24);transform:translateY(-2px);}
+.ecg-anim{position:absolute;right:32px;top:50%;transform:translateY(-50%);
+  display:flex;align-items:center;gap:3px;opacity:.2;}
+.ecg-anim span{display:inline-block;width:4px;border-radius:2px;background:white;
+  animation:wave 1.5s ease-in-out infinite;}
+.ecg-anim span:nth-child(1){height:10px;animation-delay:0s}
+.ecg-anim span:nth-child(2){height:26px;animation-delay:.12s}
+.ecg-anim span:nth-child(3){height:8px;animation-delay:.24s}
+.ecg-anim span:nth-child(4){height:50px;animation-delay:.36s}
+.ecg-anim span:nth-child(5){height:10px;animation-delay:.48s}
+.ecg-anim span:nth-child(6){height:6px;animation-delay:.60s}
+.ecg-anim span:nth-child(7){height:34px;animation-delay:.72s}
+.ecg-anim span:nth-child(8){height:14px;animation-delay:.84s}
+.ecg-anim span:nth-child(9){height:8px;animation-delay:.96s}
+.ecg-anim span:nth-child(10){height:22px;animation-delay:1.08s}
+
+/* KPI */
+.kpi{background:white;border-radius:13px;padding:18px 20px;border:1px solid #e2e8f0;
+  display:flex;align-items:center;gap:14px;
+  transition:transform .2s,box-shadow .2s;cursor:default;}
+.kpi:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,.08);}
+.kpi-ico{width:46px;height:46px;border-radius:11px;display:flex;align-items:center;
+  justify-content:center;font-size:1.25rem;flex-shrink:0;}
+.kpi-v{font-size:1.55rem;font-weight:800;color:#1e293b;line-height:1;}
+.kpi-l{font-size:.72rem;color:#94a3b8;margin-top:3px;font-weight:600;letter-spacing:.04em;}
+
+/* Info cards */
+.ic{background:white;border-radius:15px;padding:22px;border:1px solid #e2e8f0;
+  transition:transform .2s,box-shadow .2s;}
+.ic:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(0,0,0,.07);}
+.ic-ico{width:50px;height:50px;border-radius:13px;display:flex;align-items:center;
+  justify-content:center;font-size:1.35rem;margin-bottom:13px;}
+.ic-t{font-size:.97rem;font-weight:700;color:#1e293b;margin-bottom:5px;}
+.ic-d{font-size:.82rem;color:#64748b;line-height:1.7;}
+
+/* Arrhythmia cards */
+.ac{border-radius:13px;padding:16px 18px 16px 22px;border:1px solid #e2e8f0;
+  background:white;transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden;}
+.ac:hover{transform:translateY(-3px);}
+.ac-bar{position:absolute;top:0;left:0;width:4px;height:100%;border-radius:4px 0 0 4px;}
+.ac-code{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:6px;
+  display:inline-block;margin-bottom:6px;}
+.ac-name{font-size:.92rem;font-weight:700;color:#1e293b;margin-bottom:5px;}
+.ac-desc{font-size:.78rem;color:#64748b;line-height:1.6;}
+.ac-sev{font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:20px;
+  display:inline-block;margin-top:7px;}
+
+/* Steps */
+.step{background:white;border-radius:11px;padding:13px 15px;border:1px solid #e2e8f0;
+  display:flex;gap:12px;align-items:flex-start;transition:transform .2s;}
+.step:hover{transform:translateX(4px);}
+.step-n{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:flex;
+  align-items:center;justify-content:center;font-size:.82rem;font-weight:800;}
+
+/* HRV rows */
+.hrv-row{padding:11px 13px;background:#f8fafc;border-radius:9px;}
+
+/* Section labels */
+.sh{font-size:1.08rem;font-weight:800;color:#1e293b;margin-bottom:3px;}
+.ss{font-size:.8rem;color:#94a3b8;margin-bottom:16px;}
+</style>
+
+<!-- Hero -->
+<div class="hero fu">
+  <div style="position:relative;z-index:1;">
+    <div style="display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.12);
+                border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 13px;
+                font-size:.73rem;font-weight:600;margin-bottom:13px;">
+      <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;
+                   animation:pulse-g 1.5s infinite;display:inline-block;"></span>
+      AI-Powered Cardiac Analysis
+    </div>
+    <h1 class="hero-title">CardioAI — ECG Arrhythmia<br>Detection System</h1>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;">
+      <a href="/analyze"      class="hero-btn"><i class="fas fa-upload"></i> Analyze ECG</a>
+      <a href="/patients"     class="hero-btn"><i class="fas fa-users"></i> My Patients</a>
+      <a href="/patients/add" class="hero-btn"><i class="fas fa-user-plus"></i> Add Patient</a>
+    </div>
+  </div>
+  <div class="ecg-anim">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+</div>
+
+<!-- What is Arrhythmia -->
+<div class="sh fu"><i class="fas fa-heart-pulse" style="color:#ef4444;margin-right:8px;"></i>Understanding Cardiac Arrhythmia</div>
+<div class="ss fu">Key facts every cardiologist should know</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin-bottom:30px;">
+  <div class="ic fu">
+    <div class="ic-ico" style="background:#fef2f2;color:#ef4444;"><i class="fas fa-heart-crack"></i></div>
+    <div class="ic-t">What is Arrhythmia?</div>
+    <div class="ic-d">An arrhythmia is an irregular heartbeat — the heart beats too fast, too slow, or with an irregular pattern due to faulty electrical signals.</div>
+  </div>
+  <div class="ic fu">
+    <div class="ic-ico" style="background:#eff6ff;color:#3b82f6;"><i class="fas fa-globe"></i></div>
+    <div class="ic-t">Global Prevalence</div>
+    <div class="ic-d">Over <strong>1.5 billion people</strong> worldwide are affected. Atrial fibrillation alone affects 37 million and is the most common sustained arrhythmia.</div>
+  </div>
+  <div class="ic fu">
+    <div class="ic-ico" style="background:#fffbeb;color:#f59e0b;"><i class="fas fa-triangle-exclamation"></i></div>
+    <div class="ic-t">Risk Factors</div>
+    <div class="ic-d">Coronary artery disease, hypertension, diabetes, obesity, sleep apnea, excessive alcohol, and advancing age are the primary risk factors.</div>
+  </div>
+  <div class="ic fu">
+    <div class="ic-ico" style="background:#f0fdf4;color:#22c55e;"><i class="fas fa-stethoscope"></i></div>
+    <div class="ic-t">Early Detection</div>
+    <div class="ic-d">Early ECG screening can prevent stroke, heart failure, and sudden cardiac death. AI tools enable faster, consistent screening at scale.</div>
+  </div>
+</div>
+
+<!-- Arrhythmia Types -->
+<div class="sh fu"><i class="fas fa-list-ul" style="color:#6366f1;margin-right:8px;"></i>Arrhythmia Types Detected</div>
+<div class="ss fu">CardioAI classifies 11 distinct cardiac rhythm patterns</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:13px;margin-bottom:30px;">
+
+  <div class="ac fu"><div class="ac-bar" style="background:#22c55e;"></div><span class="ac-code" style="background:#f0fdf4;color:#22c55e;">NSR</span><div class="ac-name">Normal Sinus Rhythm</div><div class="ac-desc">Regular rhythm from the sinus node. Heart beats normally between 60–100 bpm.</div><span class="ac-sev" style="background:#f0fdf4;color:#15803d;">Normal Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#3b82f6;"></div><span class="ac-code" style="background:#eff6ff;color:#3b82f6;">SBR</span><div class="ac-name">Sinus Bradycardia</div><div class="ac-desc">Heart rate below 60 bpm. Common in athletes; may indicate conduction issues.</div><span class="ac-sev" style="background:#eff6ff;color:#2563eb;">Mild Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#f59e0b;"></div><span class="ac-code" style="background:#fffbeb;color:#d97706;">STach</span><div class="ac-name">Sinus Tachycardia</div><div class="ac-desc">Heart rate above 100 bpm. Often caused by stress, fever, or dehydration.</div><span class="ac-sev" style="background:#fffbeb;color:#d97706;">Mild Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#f59e0b;"></div><span class="ac-code" style="background:#fffbeb;color:#d97706;">PAC</span><div class="ac-name">Premature Atrial Contractions</div><div class="ac-desc">Extra beats from the atria. Usually benign but may indicate AFib risk.</div><span class="ac-sev" style="background:#fffbeb;color:#d97706;">Mild Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#ef4444;"></div><span class="ac-code" style="background:#fef2f2;color:#dc2626;">PVC</span><div class="ac-name">Premature Ventricular Contractions</div><div class="ac-desc">Extra beats from the ventricles. Frequent PVCs require cardiology evaluation.</div><span class="ac-sev" style="background:#fef2f2;color:#dc2626;">Moderate Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#f59e0b;"></div><span class="ac-code" style="background:#fffbeb;color:#d97706;">SVT</span><div class="ac-name">Supraventricular Tachycardia</div><div class="ac-desc">Rapid rhythm above the ventricles. May require medication or catheter ablation.</div><span class="ac-sev" style="background:#fffbeb;color:#d97706;">Moderate Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#dc2626;"></div><span class="ac-code" style="background:#fef2f2;color:#dc2626;">AFib</span><div class="ac-name">Atrial Fibrillation</div><div class="ac-desc">Chaotic atrial activity with irregular RR intervals. Increases stroke risk 5×.</div><span class="ac-sev" style="background:#fef2f2;color:#dc2626;">High Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#dc2626;"></div><span class="ac-code" style="background:#fef2f2;color:#dc2626;">VT</span><div class="ac-name">Ventricular Tachycardia</div><div class="ac-desc">Rapid ventricular rhythm — potentially life-threatening. Requires urgent care.</div><span class="ac-sev" style="background:#fef2f2;color:#dc2626;">High Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#8b5cf6;"></div><span class="ac-code" style="background:#fdf4ff;color:#7c3aed;">Block</span><div class="ac-name">Heart Block</div><div class="ac-desc">Delayed or blocked AV conduction. High-degree block may require a pacemaker.</div><span class="ac-sev" style="background:#fdf4ff;color:#7c3aed;">Moderate Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#94a3b8;"></div><span class="ac-code" style="background:#f8fafc;color:#64748b;">Paced</span><div class="ac-name">Paced Rhythm</div><div class="ac-desc">Heartbeats generated by an implanted pacemaker device. Regular follow-up needed.</div><span class="ac-sev" style="background:#f8fafc;color:#64748b;">Normal Risk</span></div>
+
+  <div class="ac fu"><div class="ac-bar" style="background:#ef4444;"></div><span class="ac-code" style="background:#fef2f2;color:#dc2626;">Bigeminy</span><div class="ac-name">Ventricular Bigeminy</div><div class="ac-desc">Every other beat is a PVC (N-V-N-V pattern). Requires Holter monitoring.</div><span class="ac-sev" style="background:#fef2f2;color:#dc2626;">Moderate Risk</span></div>
+
+</div>
+
+<!-- Quick Actions -->
+<div class="card fu" style="background:linear-gradient(135deg,#f8fafc,#eff6ff);border:1px solid #bfdbfe;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;">
+    <div>
+      <div style="font-size:1rem;font-weight:800;color:#1e293b;margin-bottom:4px;">
+        <i class="fas fa-rocket" style="color:#3b82f6;margin-right:7px;"></i>Ready to analyze?
+      </div>
+      <div style="font-size:.83rem;color:#64748b;">Upload a patient ECG or add a new patient to get started.</div>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;">
+      <a href="/analyze"      class="btn btn-primary"><i class="fas fa-upload"></i> Analyze ECG</a>
+      <a href="/patients/add" class="btn btn-outline"><i class="fas fa-user-plus"></i> Add Patient</a>
+      <a href="/patients"     class="btn btn-outline"><i class="fas fa-users"></i> View Patients</a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Scroll-triggered fade-up
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.fu').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(18px)';
+  el.style.transition = 'opacity .45s ease, transform .45s ease';
+  obs.observe(el);
+});
+
+// Arrhythmia card hover glow
+document.querySelectorAll('.ac').forEach(card => {
+  const bar = card.querySelector('.ac-bar');
+  if (!bar) return;
+  const color = bar.style.background;
+  card.addEventListener('mouseenter', () => {
+    card.style.boxShadow = `0 8px 22px ${color}30`;
+    card.style.borderColor = `${color}60`;
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.boxShadow = '';
+    card.style.borderColor = '#e2e8f0';
+  });
+});
+
+// KPI counter animation
+function animCount(el) {
+  const target = parseInt(el.dataset.target);
+  if (!target) return;
+  let cur = 0;
+  const step = Math.max(1, Math.ceil(target / 25));
+  const t = setInterval(() => {
+    cur = Math.min(cur + step, target);
+    el.textContent = cur;
+    if (cur >= target) clearInterval(t);
+  }, 45);
+}
+const kpiObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { animCount(e.target); kpiObs.unobserve(e.target); }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('[data-target]').forEach(el => kpiObs.observe(el));
+</script>
+{% endblock %}

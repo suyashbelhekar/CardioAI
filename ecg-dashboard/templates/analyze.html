@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Analyze ECG — CardioAI{% endblock %}
+{% block page_title %}Analyze ECG{% endblock %}
+{% block page_sub %}Upload a signal and run arrhythmia detection{% endblock %}
+
+{% block content %}
+{% if error %}
+<div class="alert alert-error"><i class="fas fa-circle-exclamation"></i> {{ error }}</div>
+{% endif %}
+
+<div class="grid-2" style="align-items:start;">
+
+  <!-- Upload Card -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-upload" style="color:#3b82f6"></i> Upload ECG Signal</div>
+    <div class="card-sub">CSV file with <code>time</code> and <code>signal</code> columns · 360 Hz recommended</div>
+
+    <!-- Patient Selection -->
+    <div style="margin-bottom:20px;">
+      <label style="display:block;font-size:0.9rem;font-weight:600;color:#475569;margin-bottom:8px;">
+        Link to Patient (Optional)
+      </label>
+      {% if request.args.get('patient_id') and patients %}
+        {% set preselected = patients | selectattr('id', 'equalto', request.args.get('patient_id')) | list %}
+        {% if preselected %}
+        <div style="padding:10px 14px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;margin-bottom:10px;display:flex;align-items:center;gap:10px;">
+          <i class="fas fa-user-check" style="color:#22c55e;"></i>
+          <span style="font-size:.9rem;color:#15803d;font-weight:600;">
+            Linked to: {{ preselected[0].full_name }}
+          </span>
+        </div>
+        {% endif %}
+      {% endif %}
+      <select id="patientSelect" style="width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:8px;font-size:0.9rem;" onchange="onPatientChange(this)">
+        <option value="">-- No patient selected --</option>
+        {% if patients %}
+          {% for patient in patients %}
+          <option value="{{ patient.id }}"
+            {% if request.args.get('patient_id') == patient.id %}selected{% endif %}>
+            {{ patient.full_name }} (ID: #{{ patient.id[:8] }})
+          </option>
+          {% endfor %}
+        {% endif %}
+      </select>
+      <div id="patientBadge" style="display:none;margin-top:8px;padding:8px 12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:.85rem;color:#1d4ed8;">
+        <i class="fas fa-link"></i> <span id="patientBadgeText"></span>
+      </div>
+    </div>
+
+    <label for="csvFile">
+      <div class="upload-zone" id="dropZone">
+        <div class="upload-icon"><i class="fas fa-file-waveform"></i></div>
+        <h3>Drop your CSV file here</h3>
+        <p>or click to browse</p>
+        <p style="margin-top:8px;" id="file-name-display"></p>
+      </div>
+    </label>
+    <input type="file" id="csvFile" accept=".csv" onchange="onFileChange(this)"/>
+
+    <div class="btn-row">
+      <button class="btn btn-primary btn-lg" onclick="runAnalysis(false)">
+        <i class="fas fa-play"></i> Analyze Upload
+      </button>
+    </div>
+  </div>
+
+  <!-- Info Panel -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="card">
+      <div class="card-title"><i class="fas fa-circle-info" style="color:#6366f1"></i> Input Format</div>
+      <div class="card-sub">Expected CSV structure</div>
+      <pre style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;font-size:0.8rem;color:#334155;overflow-x:auto;">time,signal
+0.0000,-0.01449
+0.0028,-0.02091
+0.0056,-0.03079
+0.0083,-0.01030
+...</pre>
+      <p class="text-muted" style="margin-top:10px;">Sampling rate: 360 Hz · Lead I (MLII) recommended · <strong>Minimum 10 seconds recommended for accurate arrhythmia detection</strong></p>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="fas fa-list-check" style="color:#22c55e"></i> What Gets Analyzed</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px;">
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#3b82f6"></i> R-peak detection &amp; beat segmentation
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#8b5cf6"></i> Per-beat AAMI class prediction
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#22c55e"></i> Confidence score per beat
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#f59e0b"></i> Heart rate &amp; HRV metrics
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#ef4444"></i> Risk level assessment
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:0.85rem;">
+          <i class="fas fa-check-circle" style="color:#6366f1"></i> Downloadable PDF report
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Loader -->
+<div class="loader-overlay" id="loader">
+  <div class="spinner"></div>
+  <div class="loader-text">Analyzing ECG signal...</div>
+  <div class="text-muted" style="font-size:0.8rem;">Detecting peaks · Running model · Computing HRV</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedFile = null;
+
+function onPatientChange(sel) {
+  const badge = document.getElementById('patientBadge');
+  const text  = document.getElementById('patientBadgeText');
+  if (sel.value) {
+    const name = sel.options[sel.selectedIndex].text;
+    text.textContent = 'ECG will be saved to: ' + name;
+    badge.style.display = 'block';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+// Auto-show badge if patient pre-selected via URL
+window.addEventListener('load', () => {
+  const sel = document.getElementById('patientSelect');
+  if (sel && sel.value) onPatientChange(sel);
+});
+
+function onFileChange(input) {
+  selectedFile = input.files[0];
+  const el = document.getElementById('file-name-display');
+  if (selectedFile) {
+    el.innerHTML = `<span style="color:#3b82f6;font-weight:600;font-size:0.85rem;"><i class="fas fa-file-csv"></i> ${selectedFile.name}</span>`;
+    document.getElementById('dropZone').style.borderColor = '#3b82f6';
+  }
+}
+
+// Drag & drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) { document.getElementById('csvFile').files = e.dataTransfer.files; onFileChange({files:[f]}); }
+});
+
+async function runAnalysis(useSample) {
+  document.getElementById('loader').classList.add('show');
+  const fd = new FormData();
+  if (!useSample && selectedFile) fd.append('file', selectedFile);
+  
+  // Add patient_id if selected
+  const patientId = document.getElementById('patientSelect').value;
+  if (patientId) {
+    fd.append('patient_id', patientId);
+  }
+  
+  try {
+    const res = await fetch('/predict', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.status === 'ok') {
+      // If linked to a patient, go to results then they can navigate back
+      window.location.href = '/results';
+    } else {
+      document.getElementById('loader').classList.remove('show');
+      // Show error inline
+      const errDiv = document.createElement('div');
+      errDiv.className = 'alert alert-error';
+      errDiv.innerHTML = `<i class="fas fa-circle-exclamation"></i> <strong>Analysis failed:</strong> ${data.message}<br>
+        <small style="margin-top:6px;display:block;">Make sure your CSV has a numeric signal column. Accepted names: signal, amplitude, value, ecg, mlii, v5 — or any numeric column will be used automatically.</small>`;
+      document.querySelector('.page-content').prepend(errDiv);
+    }
+  } catch(e) {
+    document.getElementById('loader').classList.remove('show');
+    alert('Request failed: ' + e.message);
+  }
+}
+
+// Auto-run sample if ?sample=1
+if (new URLSearchParams(window.location.search).get('sample') === '1') {
+  setTimeout(() => runAnalysis(true), 300);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% block title %}Report — CardioAI{% endblock %}
+{% block page_title %}Analysis Report{% endblock %}
+{% block page_sub %}Review, fill patient details and download{% endblock %}
+
+{% block content %}
+{% set risk_lower = data.risk_level | lower %}
+
+<!-- Action Bar -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+  <div style="font-size:0.85rem;color:var(--muted);">
+    <i class="fas fa-file-csv"></i> {{ data.filename }} &nbsp;·&nbsp;
+    <i class="fas fa-clock"></i> {{ data.timestamp }}
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <button class="btn btn-primary btn-lg" onclick="openPatientModal()">
+      <i class="fas fa-user-plus"></i> Patient Details
+    </button>
+    <button class="btn btn-success btn-lg" onclick="downloadReport()">
+      <i class="fas fa-file-pdf"></i> Download PDF Report
+    </button>
+    <a href="/analyze" class="btn btn-outline"><i class="fas fa-redo"></i> New Analysis</a>
+    <a href="/results" class="btn btn-outline"><i class="fas fa-chart-bar"></i> View Results</a>
+  </div>
+</div>
+
+<!-- Patient Details Modal -->
+<div id="patientModal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:16px;padding:32px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,0.2);margin:20px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div>
+        <h2 style="font-size:1.1rem;font-weight:800;color:#1e293b;">Patient Details</h2>
+        <p style="font-size:0.8rem;color:#64748b;margin-top:2px;">This information will appear at the top of the PDF report</p>
+      </div>
+      <button onclick="closePatientModal()" style="background:none;border:none;cursor:pointer;font-size:1.2rem;color:#94a3b8;padding:4px;">
+        <i class="fas fa-xmark"></i>
+      </button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+          <i class="fas fa-user" style="color:#3b82f6;margin-right:5px;"></i>Full Name <span style="color:#ef4444;">*</span>
+        </label>
+        <input id="pt-name" type="text" placeholder="e.g. John Smith"
+          style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;outline:none;transition:border 0.15s;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+          <i class="fas fa-phone" style="color:#22c55e;margin-right:5px;"></i>Mobile Number <span style="color:#ef4444;">*</span>
+        </label>
+        <input id="pt-phone" type="tel" placeholder="e.g. +1 234 567 8900"
+          style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;outline:none;transition:border 0.15s;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"/>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+          <i class="fas fa-location-dot" style="color:#f59e0b;margin-right:5px;"></i>Address <span style="color:#ef4444;">*</span>
+        </label>
+        <textarea id="pt-address" rows="2" placeholder="e.g. 123 Main St, City, Country"
+          style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;outline:none;resize:none;transition:border 0.15s;font-family:inherit;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+      </div>
+      <div>
+        <label style="font-size:0.8rem;font-weight:600;color:#374151;display:block;margin-bottom:6px;">
+          <i class="fas fa-notes-medical" style="color:#8b5cf6;margin-right:5px;"></i>Medical History
+          <span style="font-weight:400;color:#94a3b8;">(Optional)</span>
+        </label>
+        <textarea id="pt-history" rows="3" placeholder="e.g. Hypertension, Diabetes Type 2, Previous cardiac events..."
+          style="width:100%;padding:10px 14px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.875rem;outline:none;resize:none;transition:border 0.15s;font-family:inherit;"
+          onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+      </div>
+    </div>
+
+    <div id="pt-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#b91c1c;margin-top:12px;">
+      <i class="fas fa-circle-exclamation"></i> Please fill in all required fields.
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button class="btn btn-primary" style="flex:1;justify-content:center;" onclick="savePatientDetails()">
+        <i class="fas fa-check"></i> Save & Preview
+      </button>
+      <button class="btn btn-outline" onclick="closePatientModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Patient Info Preview (shown after saving) -->
+<div id="patient-preview" style="display:none;background:white;border:2px solid #3b82f6;border-radius:12px;padding:16px 20px;margin-bottom:20px;max-width:860px;margin-left:auto;margin-right:auto;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div style="width:36px;height:36px;border-radius:50%;background:#eff6ff;color:#3b82f6;display:flex;align-items:center;justify-content:center;">
+        <i class="fas fa-user"></i>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:0.95rem;color:#1e293b;" id="preview-name"></div>
+        <div style="font-size:0.78rem;color:#64748b;" id="preview-sub"></div>
+      </div>
+    </div>
+    <button class="btn btn-outline" style="font-size:0.8rem;padding:6px 14px;" onclick="openPatientModal()">
+      <i class="fas fa-pen"></i> Edit
+    </button>
+  </div>
+  <div id="preview-history" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;font-size:0.8rem;color:#475569;">
+    <i class="fas fa-notes-medical" style="color:#8b5cf6;margin-right:5px;"></i><span id="preview-history-text"></span>
+  </div>
+</div>
+
+<!-- Report Preview -->
+<div style="background:white;border:1px solid var(--border);border-radius:16px;padding:40px;max-width:860px;margin:0 auto;box-shadow:0 4px 24px rgba(0,0,0,0.07);" id="report-preview">
+
+  <!-- Clinic Header -->
+  <div style="display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:3px solid #1e40af;margin-bottom:20px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:44px;height:44px;border-radius:11px;background:linear-gradient(135deg,#3b82f6,#8b5cf6);display:flex;align-items:center;justify-content:center;color:white;font-size:1.2rem;">
+        <i class="fas fa-heartbeat"></i>
+      </div>
+      <div>
+        <div style="font-size:1.3rem;font-weight:800;color:#1e40af;">CardioAI</div>
+        <div style="font-size:0.72rem;color:#64748b;">ECG Arrhythmia Detection System · MIT-BIH · AAMI Standard</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:0.72rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">Report Generated</div>
+      <div style="font-size:0.85rem;font-weight:600;color:#1e293b;">{{ data.timestamp }}</div>
+      <div style="font-size:0.75rem;color:#94a3b8;margin-top:2px;">File: {{ data.filename }}</div>
+    </div>
+  </div>
+
+  <!-- Patient Info Block (injected by JS) -->
+  <div id="report-patient-block" style="display:none;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px 20px;margin-bottom:20px;">
+    <div style="font-size:0.7rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Patient Information</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <div><span style="font-size:0.72rem;color:#94a3b8;">Full Name</span><div style="font-size:0.9rem;font-weight:700;color:#1e293b;" id="rpt-name"></div></div>
+      <div><span style="font-size:0.72rem;color:#94a3b8;">Mobile</span><div style="font-size:0.9rem;font-weight:600;color:#1e293b;" id="rpt-phone"></div></div>
+      <div style="grid-column:span 2;"><span style="font-size:0.72rem;color:#94a3b8;">Address</span><div style="font-size:0.85rem;color:#334155;" id="rpt-address"></div></div>
+    </div>
+    <div id="rpt-history-block" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #e2e8f0;">
+      <span style="font-size:0.72rem;color:#94a3b8;">Medical History</span>
+      <div style="font-size:0.85rem;color:#334155;" id="rpt-history"></div>
+    </div>
+  </div>
+
+  <h2 style="font-size:1.15rem;font-weight:800;color:#1e293b;margin-bottom:18px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;">ECG Arrhythmia Analysis Report</h2>
+
+  <!-- Arrhythmia Diagnosis -->
+  {% if data.diagnoses %}
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:10px;color:#1e293b;">Arrhythmia Diagnosis</h3>
+  {% for d in data.diagnoses %}
+  <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:{{ d.color }};flex-shrink:0;"></div>
+      <span style="font-size:0.9rem;font-weight:700;">{{ d.name }}</span>
+      <span style="padding:2px 10px;border-radius:12px;font-size:0.72rem;font-weight:600;background:{{ d.color }}18;color:{{ d.color }};">{{ d.severity }}</span>
+      {% if d.confidence %}<span style="font-size:0.72rem;color:#94a3b8;">{{ d.confidence }}% confidence</span>{% endif %}
+    </div>
+    <p style="font-size:0.82rem;color:#475569;margin-bottom:6px;">{{ d.description }}</p>
+    <div style="background:#f8fafc;border-left:3px solid {{ d.color }};padding:8px 12px;border-radius:0 6px 6px 0;font-size:0.8rem;color:#334155;">
+      <strong>Advice:</strong> {{ d.advice }}
+    </div>
+  </div>
+  {% endfor %}
+  <div style="margin-bottom:20px;"></div>
+  {% endif %}
+
+  <!-- Risk -->
+  <div class="risk-banner {{ risk_lower }}" style="margin-bottom:20px;">
+    <div class="risk-icon">
+      {% if risk_lower == 'high' %}<i class="fas fa-triangle-exclamation" style="color:#ef4444"></i>
+      {% elif risk_lower == 'moderate' %}<i class="fas fa-circle-exclamation" style="color:#f59e0b"></i>
+      {% else %}<i class="fas fa-circle-check" style="color:#22c55e"></i>{% endif %}
+    </div>
+    <div>
+      <div class="risk-title">Overall Risk: {{ data.risk_level }}</div>
+      <div class="risk-desc">{{ data.risk_score }}% ventricular beats · Dominant: {{ data.dominant }} — {{ data.dominant_label }}</div>
+    </div>
+  </div>
+
+  <!-- Clinical Summary -->
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:10px;color:#1e293b;">Clinical Summary</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px;">
+    {% for label, val in [
+      ('Total Beats Analyzed', data.total_beats),
+      ('Recording Duration', data.duration ~ ' s'),
+      ('Heart Rate', data.hrv.hr ~ ' bpm'),
+      ('Mean RR Interval', data.hrv.mean_rr ~ ' ms'),
+      ('SDNN (HRV)', data.hrv.sdnn ~ ' ms'),
+      ('RMSSD (HRV)', data.hrv.rmssd ~ ' ms'),
+      ('Dominant Rhythm', data.dominant ~ ' — ' ~ data.dominant_label),
+      ('Risk Level', data.risk_level)
+    ] %}
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;">
+      <div style="font-size:0.68rem;color:#94a3b8;text-transform:uppercase;letter-spacing:0.05em;">{{ label }}</div>
+      <div style="font-size:0.92rem;font-weight:700;color:#1e293b;margin-top:2px;">{{ val }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Beat Classification -->
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:10px;color:#1e293b;">Beat Classification Summary</h3>
+  <div class="table-wrap" style="margin-bottom:20px;">
+    <table>
+      <thead><tr><th>Class</th><th>Label</th><th>Count</th><th>Percentage</th><th>Risk</th></tr></thead>
+      <tbody>
+        {% for cls, cnt in data.beat_counts.items() %}
+        {% set pct = (cnt / data.total_beats * 100) | round(1) %}
+        {% set risk = {'N':'Low','S':'Moderate','V':'High','F':'Moderate','Q':'Low'}[cls] %}
+        <tr>
+          <td><span class="badge badge-{{ cls }}">{{ cls }}</span></td>
+          <td>{{ data.class_labels[cls] }}</td>
+          <td><strong>{{ cnt }}</strong></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar-wrap" style="width:70px;">
+                <div class="progress-bar" style="width:{{ pct }}%;background:{{ data.class_colors[cls] }};"></div>
+              </div>{{ pct }}%
+            </div>
+          </td>
+          <td><span class="badge badge-{{ risk | lower }}">{{ risk }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ECG Chart -->
+  {% if data.ecg_img %}
+  <h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:#1e293b;">ECG Signal with Annotations</h3>
+  <img src="data:image/png;base64,{{ data.ecg_img }}" style="width:100%;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:20px;"/>
+  {% endif %}
+
+  <!-- Pie + RR -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+    {% if data.pie_img %}
+    <div>
+      <h3 style="font-size:0.85rem;font-weight:700;margin-bottom:8px;color:#1e293b;">Beat Distribution</h3>
+      <img src="data:image/png;base64,{{ data.pie_img }}" style="width:100%;border-radius:10px;border:1px solid #e2e8f0;"/>
+    </div>
+    {% endif %}
+    {% if data.rr_img %}
+    <div>
+      <h3 style="font-size:0.85rem;font-weight:700;margin-bottom:8px;color:#1e293b;">RR Interval Tachogram</h3>
+      <img src="data:image/png;base64,{{ data.rr_img }}" style="width:100%;border-radius:10px;border:1px solid #e2e8f0;"/>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Disclaimer -->
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px 16px;">
+    <div style="font-size:0.73rem;color:#94a3b8;line-height:1.6;">
+      <i class="fas fa-circle-info"></i>
+      <strong>Disclaimer:</strong> This report is generated by an AI model for research and educational purposes only.
+      It is not a substitute for professional medical diagnosis. Always consult a qualified cardiologist.
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:24px;margin-bottom:40px;">
+  <button class="btn btn-success btn-lg" onclick="downloadReport()">
+    <i class="fas fa-file-pdf"></i> Download Full PDF Report
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Patient data store
+let patientData = { name:'', phone:'', address:'', history:'' };
+
+function openPatientModal() {
+  // Pre-fill if already saved
+  document.getElementById('pt-name').value    = patientData.name;
+  document.getElementById('pt-phone').value   = patientData.phone;
+  document.getElementById('pt-address').value = patientData.address;
+  document.getElementById('pt-history').value = patientData.history;
+  document.getElementById('pt-error').style.display = 'none';
+  document.getElementById('patientModal').style.display = 'flex';
+}
+
+function closePatientModal() {
+  document.getElementById('patientModal').style.display = 'none';
+}
+
+function savePatientDetails() {
+  const name    = document.getElementById('pt-name').value.trim();
+  const phone   = document.getElementById('pt-phone').value.trim();
+  const address = document.getElementById('pt-address').value.trim();
+  const history = document.getElementById('pt-history').value.trim();
+
+  if (!name || !phone || !address) {
+    document.getElementById('pt-error').style.display = 'block';
+    return;
+  }
+
+  patientData = { name, phone, address, history };
+  closePatientModal();
+  updatePatientPreview();
+  updateReportBlock();
+}
+
+function updatePatientPreview() {
+  document.getElementById('preview-name').textContent = patientData.name;
+  document.getElementById('preview-sub').textContent  = patientData.phone + ' · ' + patientData.address;
+  const histEl = document.getElementById('preview-history');
+  if (patientData.history) {
+    document.getElementById('preview-history-text').textContent = patientData.history;
+    histEl.style.display = 'block';
+  } else {
+    histEl.style.display = 'none';
+  }
+  document.getElementById('patient-preview').style.display = 'block';
+}
+
+function updateReportBlock() {
+  document.getElementById('rpt-name').textContent    = patientData.name;
+  document.getElementById('rpt-phone').textContent   = patientData.phone;
+  document.getElementById('rpt-address').textContent = patientData.address;
+  const hb = document.getElementById('rpt-history-block');
+  if (patientData.history) {
+    document.getElementById('rpt-history').textContent = patientData.history;
+    hb.style.display = 'block';
+  } else {
+    hb.style.display = 'none';
+  }
+  document.getElementById('report-patient-block').style.display = 'block';
+}
+
+function downloadReport() {
+  const params = new URLSearchParams({
+    pt_name:    patientData.name,
+    pt_phone:   patientData.phone,
+    pt_address: patientData.address,
+    pt_history: patientData.history,
+  });
+  window.location.href = '/download_report?' + params.toString();
+}
+
+// Close modal on backdrop click
+document.getElementById('patientModal').addEventListener('click', function(e) {
+  if (e.target === this) closePatientModal();
+});
+</script>
+{% endblock %}

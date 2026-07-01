@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block title %}{{ patient.full_name }} — CardioAI{% endblock %}
+{% block page_title %}{{ patient.full_name }}{% endblock %}
+{% block page_sub %}Patient ID: {{ patient.id[:8] }} · Registered {{ patient.created_at[:10] }}{% endblock %}
+
+{% block content %}
+
+<style>
+  .risk-high   { background:#fef2f2; color:#dc2626; border-color:#fecaca; }
+  .risk-mod    { background:#fffbeb; color:#d97706; border-color:#fde68a; }
+  .risk-low    { background:#f0fdf4; color:#15803d; border-color:#bbf7d0; }
+  .sev-high    { background:#fef2f2; }
+  .sev-mod     { background:#fffbeb; }
+  .sev-mild    { background:#eff6ff; }
+  .sev-normal  { background:#f0fdf4; }
+  .trend-up    { color:#22c55e; }
+  .trend-down  { color:#ef4444; }
+  .imp-good    { background:#f0fdf4; color:#15803d; }
+  .imp-bad     { background:#fef2f2; color:#dc2626; }
+  .info-row    { display:flex; justify-content:space-between; padding:10px 14px;
+                 background:#f8fafc; border-radius:8px; }
+  .info-label  { font-weight:600; color:#64748b; font-size:.88rem; }
+  .info-val    { color:#1e293b; font-size:.88rem; }
+  .mini-stat   { padding:10px 14px; background:#f8fafc; border-radius:8px; text-align:center; }
+  .mini-label  { font-size:.72rem; font-weight:700; color:#94a3b8; margin-bottom:4px; }
+  .mini-val    { font-size:1.3rem; font-weight:700; color:#1e293b; }
+  .beat-chip   { padding:6px 12px; border-radius:8px; background:#f8fafc;
+                 border:1px solid #e2e8f0; display:flex; align-items:center; gap:6px; }
+  .diag-row    { display:flex; align-items:center; justify-content:space-between;
+                 padding:10px 14px; border-radius:8px; }
+  .record-card { border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; }
+  .record-head { display:flex; align-items:center; justify-content:space-between;
+                 padding:14px 18px; background:#f8fafc; border-bottom:1px solid #e2e8f0;
+                 flex-wrap:wrap; gap:10px; }
+  .record-body { padding:16px 18px; }
+  .risk-badge  { padding:5px 14px; border-radius:20px; font-size:.82rem; font-weight:700;
+                 border:1px solid; }
+  .score-badge { padding:5px 14px; border-radius:20px; font-size:.82rem; font-weight:700;
+                 background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+  .section-label { font-size:.75rem; font-weight:700; color:#94a3b8; margin-bottom:8px; }
+  /* Diagnosis border colours */
+  .diag-high   { border-left:3px solid #dc2626; }
+  .diag-mod    { border-left:3px solid #d97706; }
+  .diag-mild   { border-left:3px solid #3b82f6; }
+  .diag-normal { border-left:3px solid #22c55e; }
+  /* Diagnosis confidence text colours */
+  .conf-high   { color:#dc2626; }
+  .conf-mod    { color:#d97706; }
+  .conf-mild   { color:#3b82f6; }
+  .conf-normal { color:#22c55e; }
+  /* Beat dot colours */
+  .dot-N { background:#22c55e; }
+  .dot-S { background:#f59e0b; }
+  .dot-V { background:#ef4444; }
+  .dot-F { background:#8b5cf6; }
+  .dot-Q { background:#94a3b8; }
+  /* Recovery mini-stat */
+  .rv-mini-fast { border:1px solid #bbf7d0; }
+  .rv-mini-fast .rv-mini-val { color:#15803d; }
+  .rv-mini-mod  { border:1px solid #fde68a; }
+  .rv-mini-mod  .rv-mini-val { color:#d97706; }
+  .rv-mini-slow { border:1px solid #fecaca; }
+  .rv-mini-slow .rv-mini-val { color:#dc2626; }
+</style>
+
+<!-- Top stats -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="fas fa-file-waveform"></i></div>
+    <div><div class="stat-val">{{ patient.ecg_records|length }}</div><div class="stat-lbl">ECG Records</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;color:#22c55e;"><i class="fas fa-calendar-check"></i></div>
+    <div><div class="stat-val">{{ patient.appointments|length }}</div><div class="stat-lbl">Appointments</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;color:#ef4444;"><i class="fas fa-shield-heart"></i></div>
+    <div>
+      <div class="stat-val" style="font-size:1rem;">
+        {% if latest_record %}
+          {% if latest_record.risk_level == 'High' %}
+            <span class="trend-down">{{ latest_record.risk_level }}</span>
+          {% elif latest_record.risk_level == 'Moderate' %}
+            <span style="color:#d97706;">{{ latest_record.risk_level }}</span>
+          {% else %}
+            <span class="trend-up">{{ latest_record.risk_level }}</span>
+          {% endif %}
+        {% else %}N/A{% endif %}
+      </div>
+      <div class="stat-lbl">Latest Risk</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;"><i class="fas fa-chart-line"></i></div>
+    <div>
+      <div class="stat-val" style="font-size:.95rem;">
+        {% if improvements %}
+          {% if improvements.risk.improved %}
+            <span class="trend-up"><i class="fas fa-arrow-trend-up"></i> Improving</span>
+          {% else %}
+            <span class="trend-down"><i class="fas fa-arrow-trend-down"></i> Declining</span>
+          {% endif %}
+        {% else %}N/A{% endif %}
+      </div>
+      <div class="stat-lbl">Health Trend</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid-2 section-gap">
+
+  <!-- Personal info -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-user"></i> Personal Information</div>
+    <div style="margin-top:18px;display:grid;gap:10px;">
+      <div class="info-row"><span class="info-label">Full Name</span><span class="info-val">{{ patient.full_name }}</span></div>
+      <div class="info-row"><span class="info-label">Date of Birth</span><span class="info-val">{{ patient.dob or '—' }}</span></div>
+      <div class="info-row"><span class="info-label">Gender</span><span class="info-val">{{ patient.gender or '—' }}</span></div>
+      <div class="info-row"><span class="info-label">Mobile</span><span class="info-val">{{ patient.mobile_no or '—' }}</span></div>
+      <div class="info-row"><span class="info-label">Email</span><span class="info-val">{{ patient.email or '—' }}</span></div>
+      <div style="padding:10px 14px;background:#f8fafc;border-radius:8px;">
+        <div class="info-label" style="margin-bottom:5px;">Address</div>
+        <div class="info-val" style="line-height:1.6;">{{ patient.address or '—' }}</div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <a href="/analyze?patient_id={{ patient.id }}" class="btn btn-primary" style="display:block;text-align:center;text-decoration:none;">
+        <i class="fas fa-upload"></i> Upload ECG
+      </a>
+    </div>
+  </div>
+
+  <!-- Medical info -->
+  <div class="card">
+    <div class="card-title"><i class="fas fa-notes-medical"></i> Medical Information</div>
+    <div style="margin-top:18px;">
+      <div style="padding:14px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;margin-bottom:14px;">
+        <div class="section-label">PRIMARY CONDITION</div>
+        <div style="font-size:1.05rem;font-weight:700;color:#dc2626;">{{ patient.disease or 'Not specified' }}</div>
+      </div>
+      <div style="padding:14px;background:#f8fafc;border-radius:8px;">
+        <div class="section-label">MEDICAL HISTORY</div>
+        <div style="color:#475569;font-size:.88rem;line-height:1.7;">{{ patient.medical_history or 'No history recorded.' }}</div>
+      </div>
+    </div>
+
+    {% if patient.appointments %}
+    <div style="margin-top:18px;">
+      <div class="section-label">LAST APPOINTMENT</div>
+      <div style="padding:14px;background:#f0fdf4;border-left:4px solid #22c55e;border-radius:8px;">
+        <div style="font-weight:700;color:#1e293b;margin-bottom:4px;">{{ patient.appointments[0].date[:10] }}</div>
+        <div style="font-size:.82rem;color:#64748b;">Status: {{ patient.appointments[0].status }}</div>
+        {% if patient.appointments[0].notes %}
+        <div style="font-size:.82rem;color:#475569;margin-top:6px;">{{ patient.appointments[0].notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Improvements -->
+{% if improvements %}
+<div class="card section-gap">
+  <div class="card-title"><i class="fas fa-chart-line"></i> Health Improvements</div>
+  <div class="card-sub">Comparing latest vs previous ECG — {{ improvements.prev_date[:10] }} → {{ improvements.latest_date[:10] }}</div>
+  <div class="stats-grid" style="margin-top:18px;">
+
+    <div class="stat-card">
+      <div class="section-label">RISK LEVEL</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span style="padding:5px 12px;border-radius:8px;background:#f1f5f9;color:#64748b;font-size:.85rem;font-weight:600;">
+          {{ improvements.risk.from }}
+        </span>
+        <i class="fas fa-arrow-right" style="color:#cbd5e1;"></i>
+        <span class="{% if improvements.risk.improved %}imp-good{% else %}imp-bad{% endif %}"
+              style="padding:5px 12px;border-radius:8px;font-size:.85rem;font-weight:600;">
+          {{ improvements.risk.to }}
+        </span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="section-label">SDNN (ms)</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;font-weight:700;color:#94a3b8;">{{ improvements.hrv.sdnn.from }}</span>
+        <i class="fas fa-arrow-right" style="color:#cbd5e1;"></i>
+        <span style="font-size:1.3rem;font-weight:700;color:#3b82f6;">{{ improvements.hrv.sdnn.to }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="section-label">RMSSD (ms)</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;font-weight:700;color:#94a3b8;">{{ improvements.hrv.rmssd.from }}</span>
+        <i class="fas fa-arrow-right" style="color:#cbd5e1;"></i>
+        <span style="font-size:1.3rem;font-weight:700;color:#3b82f6;">{{ improvements.hrv.rmssd.to }}</span>
+      </div>
+    </div>
+
+    <div class="stat-card">
+      <div class="section-label">TOTAL RECORDS</div>
+      <div style="font-size:2rem;font-weight:700;color:#1e293b;">{{ improvements.total_records }}</div>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
+<!-- ECG Records History -->
+<div class="card section-gap">
+  <div class="card-title"><i class="fas fa-history"></i> ECG Records History</div>
+  <div class="card-sub">{{ patient.ecg_records|length }} records on file</div>
+
+  {% if patient.ecg_records %}
+  <div style="display:flex;flex-direction:column;gap:16px;margin-top:20px;">
+
+    {% for r in patient.ecg_records %}
+
+    {# Compute risk class once per record #}
+    {% if r.risk_level == 'High' %}
+      {% set rclass = 'risk-high' %}
+      {% set ricon  = 'triangle-exclamation' %}
+    {% elif r.risk_level == 'Moderate' %}
+      {% set rclass = 'risk-mod' %}
+      {% set ricon  = 'circle-exclamation' %}
+    {% else %}
+      {% set rclass = 'risk-low' %}
+      {% set ricon  = 'circle-check' %}
+    {% endif %}
+
+    <div class="record-card">
+
+      <!-- Header -->
+      <div class="record-head">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="width:38px;height:38px;border-radius:10px;background:#eff6ff;
+                      display:flex;align-items:center;justify-content:center;color:#3b82f6;">
+            <i class="fas fa-file-waveform"></i>
+          </div>
+          <div>
+            <div style="font-weight:700;color:#1e293b;font-size:.95rem;">{{ r.date }}</div>
+            <div style="font-size:.78rem;color:#94a3b8;margin-top:1px;">{{ r.filename or 'ECG Analysis' }}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span class="risk-badge {{ rclass }}">
+            <i class="fas fa-{{ ricon }}"></i> {{ r.risk_level }} Risk
+          </span>
+          {% if r.risk_score is defined %}
+          <span class="score-badge">{{ r.risk_score }}% V-beats</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Body -->
+      <div class="record-body">
+
+        <!-- Mini stats -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px;">
+          <div class="mini-stat">
+            <div class="mini-label">TOTAL BEATS</div>
+            <div class="mini-val">{{ r.total_beats }}</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-label">DOMINANT</div>
+            <div style="font-size:1.1rem;font-weight:700;color:#3b82f6;">{{ r.dominant_rhythm }}</div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-label">HEART RATE</div>
+            <div class="mini-val">
+              {{ r.hrv.hr if r.hrv else '—' }}
+              <span style="font-size:.75rem;color:#94a3b8;">bpm</span>
+            </div>
+          </div>
+          <div class="mini-stat">
+            <div class="mini-label">SDNN</div>
+            <div class="mini-val">
+              {{ r.hrv.sdnn if r.hrv else '—' }}
+              <span style="font-size:.75rem;color:#94a3b8;">ms</span>
+            </div>
+          </div>
+          {% if r.recovery_days is not none and r.recovery_days is defined %}
+          {% if r.recovery_days < 5 %}
+            {% set rc_cls = 'rv-mini-fast' %}
+          {% elif r.recovery_days < 10 %}
+            {% set rc_cls = 'rv-mini-mod' %}
+          {% else %}
+            {% set rc_cls = 'rv-mini-slow' %}
+          {% endif %}
+          <div class="mini-stat {{ rc_cls }}">
+            <div class="mini-label">RECOVERY</div>
+            <div class="mini-val rv-mini-val">
+              {{ r.recovery_days }}
+              <span style="font-size:.75rem;color:#94a3b8;">days</span>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Diagnoses -->
+        {% if r.diagnoses %}
+        <div style="margin-bottom:14px;">
+          <div class="section-label">ARRHYTHMIA DIAGNOSES</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            {% for d in r.diagnoses %}
+            {% if d.severity == 'High' %}
+              {% set dclass = 'sev-high diag-high' %}{% set cclass = 'conf-high' %}
+            {% elif d.severity == 'Moderate' %}
+              {% set dclass = 'sev-mod diag-mod' %}{% set cclass = 'conf-mod' %}
+            {% elif d.severity == 'Mild' %}
+              {% set dclass = 'sev-mild diag-mild' %}{% set cclass = 'conf-mild' %}
+            {% else %}
+              {% set dclass = 'sev-normal diag-normal' %}{% set cclass = 'conf-normal' %}
+            {% endif %}
+            <div class="diag-row {{ dclass }}">
+              <div>
+                <span style="font-weight:700;color:#1e293b;font-size:.9rem;">{{ d.name }}</span>
+                <span style="margin-left:8px;font-size:.78rem;color:#64748b;">{{ d.severity }}</span>
+              </div>
+              <span class="{{ cclass }}" style="font-size:.85rem;font-weight:700;">{{ d.confidence }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Beat breakdown -->
+        {% if r.beat_counts %}
+        <div>
+          <div class="section-label">BEAT BREAKDOWN</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% for cls, cnt in r.beat_counts.items() %}
+            {% set pct = (cnt / r.total_beats * 100) | round(1) %}
+            <div class="beat-chip">
+              <span class="dot-{{ cls }}" style="width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+              <span style="font-weight:700;color:#1e293b;font-size:.85rem;">{{ cls }}</span>
+              <span style="color:#64748b;font-size:.82rem;">{{ cnt }} ({{ pct }}%)</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+    {% endfor %}
+
+  </div>
+  {% else %}
+  <div style="padding:40px;text-align:center;color:#94a3b8;">
+    <i class="fas fa-file-waveform" style="font-size:2.5rem;opacity:.25;display:block;margin-bottom:12px;"></i>
+    No ECG records yet.
+    <a href="/analyze?patient_id={{ patient.id }}" style="color:#3b82f6;font-weight:600;">Upload one now</a>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

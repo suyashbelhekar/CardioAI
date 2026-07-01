@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+{% block title %}Results — CardioAI{% endblock %}
+{% block page_title %}Analysis Results{% endblock %}
+{% block page_sub %}{{ data.filename }} · {{ data.timestamp }}{% endblock %}
+
+{% block content %}
+{% set risk_lower = data.risk_level | lower %}
+
+<!-- Short recording warning -->
+{% if data.short_warning %}
+<div class="alert" style="background:#fffbeb;border:1px solid #fde68a;color:#92400e;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  <i class="fas fa-triangle-exclamation" style="font-size:1.1rem;"></i>
+  <div>
+    <strong>Short Recording ({{ data.recording_secs }}s)</strong> — Reliable arrhythmia detection requires at least 10 seconds of ECG data.
+    Only {{ data.total_beats }} beat(s) were analyzed. Results may not be accurate. Please upload a longer recording.
+  </div>
+</div>
+{% endif %}
+
+<!-- Primary Arrhythmia Diagnosis Banner -->
+{% if data.primary %}
+{% set p = data.primary %}
+<div style="background:white;border:2px solid {{ p.color }};border-radius:14px;padding:20px 24px;margin-bottom:20px;display:flex;align-items:flex-start;gap:18px;">
+  <div style="width:48px;height:48px;border-radius:12px;background:{{ p.color }}18;color:{{ p.color }};display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;">
+    {% if p.severity == 'High' %}<i class="fas fa-triangle-exclamation"></i>
+    {% elif p.severity == 'Moderate' %}<i class="fas fa-circle-exclamation"></i>
+    {% elif p.severity == 'Normal' %}<i class="fas fa-circle-check"></i>
+    {% else %}<i class="fas fa-heart-pulse"></i>{% endif %}
+  </div>
+  <div style="flex:1;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+      <span style="font-size:1.1rem;font-weight:800;color:#1e293b;">{{ p.name }}</span>
+      <span style="padding:3px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;background:{{ p.color }}18;color:{{ p.color }};">{{ p.severity }} Risk</span>
+    </div>
+    <p style="font-size:0.875rem;color:#475569;margin-bottom:8px;">{{ p.description }}</p>
+    <div style="background:#f8fafc;border-left:3px solid {{ p.color }};border-radius:0 8px 8px 0;padding:10px 14px;font-size:0.82rem;color:#334155;">
+      <i class="fas fa-stethoscope" style="color:{{ p.color }};margin-right:6px;"></i><strong>Clinical Advice:</strong> {{ p.advice }}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- All Detected Arrhythmias -->
+{% if data.diagnoses and data.diagnoses | length > 1 %}
+<div class="card section-gap">
+  <div class="card-title"><i class="fas fa-list-ul" style="color:#6366f1"></i> All Detected Arrhythmia Patterns</div>
+  <div class="card-sub">{{ data.diagnoses | length }} pattern(s) identified from beat analysis</div>
+  <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+    {% for d in data.diagnoses %}
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:14px;">
+      <div style="width:10px;height:10px;border-radius:50%;background:{{ d.color }};flex-shrink:0;"></div>
+      <div style="flex:1;">
+        <div style="font-size:0.875rem;font-weight:700;color:#1e293b;">{{ d.name }}
+          <span style="margin-left:8px;padding:2px 8px;border-radius:12px;font-size:0.72rem;font-weight:600;background:{{ d.color }}18;color:{{ d.color }};">{{ d.severity }}</span>
+          {% if d.confidence is defined %}
+          <span style="margin-left:6px;font-size:0.72rem;color:var(--muted);">{{ d.confidence }}% confidence</span>
+          {% endif %}
+        </div>
+        <div style="font-size:0.8rem;color:#64748b;margin-top:2px;">{{ d.description }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- Risk Banner -->
+<div class="risk-banner {{ risk_lower }}" style="margin-bottom:20px;">
+  <div class="risk-icon">
+    {% if risk_lower == 'high' %}<i class="fas fa-triangle-exclamation" style="color:#ef4444"></i>
+    {% elif risk_lower == 'moderate' %}<i class="fas fa-circle-exclamation" style="color:#f59e0b"></i>
+    {% else %}<i class="fas fa-circle-check" style="color:#22c55e"></i>{% endif %}
+  </div>
+  <div>
+    <div class="risk-title">Risk Level: {{ data.risk_level }}
+      <span class="badge badge-{{ risk_lower }}" style="margin-left:8px;">{{ data.risk_score }}% Ventricular</span>
+    </div>
+    <div class="risk-desc">Dominant rhythm: <strong>{{ data.dominant }}</strong> — {{ data.dominant_label }} · {{ data.total_beats }} beats analyzed over {{ data.duration }}s</div>
+  </div>
+  <div style="margin-left:auto;display:flex;gap:10px;">
+    {% if patient %}
+    <a href="/patients/{{ patient.id }}" class="btn btn-outline">
+      <i class="fas fa-user"></i> Back to {{ patient.full_name }}
+    </a>
+    {% endif %}
+    <a href="/report" class="btn btn-primary"><i class="fas fa-file-medical"></i> View Report</a>
+    <a href="/analyze" class="btn btn-outline"><i class="fas fa-redo"></i> New Analysis</a>
+  </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid section-gap">
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#eff6ff;color:#3b82f6;"><i class="fas fa-heart-pulse"></i></div>
+    <div><div class="stat-val">{{ data.hrv.hr }}</div><div class="stat-lbl">Heart Rate (bpm)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;color:#22c55e;"><i class="fas fa-wave-square"></i></div>
+    <div><div class="stat-val">{{ data.total_beats }}</div><div class="stat-lbl">Total Beats</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fdf4ff;color:#8b5cf6;"><i class="fas fa-ruler-horizontal"></i></div>
+    <div><div class="stat-val">{{ data.hrv.mean_rr }}</div><div class="stat-lbl">Mean RR (ms)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fffbeb;color:#f59e0b;"><i class="fas fa-chart-bar"></i></div>
+    <div><div class="stat-val">{{ data.hrv.sdnn }}</div><div class="stat-lbl">SDNN — HRV (ms)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#fef2f2;color:#ef4444;"><i class="fas fa-bolt"></i></div>
+    <div><div class="stat-val">{{ data.hrv.rmssd }}</div><div class="stat-lbl">RMSSD (ms)</div></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon" style="background:#f0fdf4;color:#16a34a;"><i class="fas fa-clock"></i></div>
+    <div><div class="stat-val">{{ data.duration }}s</div><div class="stat-lbl">Duration</div></div>
+  </div>
+</div>
+
+<!-- Recovery Time Prediction -->
+{% if data.recovery %}
+{% set rv = data.recovery %}
+{% set cat = rv.category %}
+{% if cat.label == 'Fast' %}
+  {% set rv_cls = 'rv-fast' %}
+{% elif cat.label == 'Moderate' %}
+  {% set rv_cls = 'rv-mod' %}
+{% else %}
+  {% set rv_cls = 'rv-slow' %}
+{% endif %}
+<style>
+  .rv-fast { border-left:4px solid #22c55e; }
+  .rv-fast .rv-icon  { background:#f0fdf4; color:#22c55e; }
+  .rv-fast .rv-days  { color:#22c55e; }
+  .rv-fast .rv-badge { background:#f0fdf4; color:#22c55e; border:1px solid #bbf7d0; }
+  .rv-mod  { border-left:4px solid #f59e0b; }
+  .rv-mod  .rv-icon  { background:#fffbeb; color:#f59e0b; }
+  .rv-mod  .rv-days  { color:#f59e0b; }
+  .rv-mod  .rv-badge { background:#fffbeb; color:#d97706; border:1px solid #fde68a; }
+  .rv-slow { border-left:4px solid #ef4444; }
+  .rv-slow .rv-icon  { background:#fef2f2; color:#ef4444; }
+  .rv-slow .rv-days  { color:#ef4444; }
+  .rv-slow .rv-badge { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+  .rv-icon  { width:56px; height:56px; border-radius:14px; display:flex;
+              align-items:center; justify-content:center; font-size:1.6rem; flex-shrink:0; }
+  .rv-days  { font-size:2.2rem; font-weight:800; }
+  .rv-badge { padding:4px 14px; border-radius:20px; font-size:.82rem; font-weight:700; }
+  .rv-dot-fast { background:#22c55e; }
+  .rv-dot-mod  { background:#f59e0b; }
+  .rv-dot-slow { background:#ef4444; }
+  .rv-scale-label { font-size:.78rem; }
+  .rv-scale-active { color:#1e293b; font-weight:700; }
+  .rv-scale-muted  { color:#94a3b8; }
+</style>
+<div class="card section-gap {{ rv_cls }}">
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <div class="rv-icon">
+      <i class="fas {{ cat.icon }}"></i>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:.78rem;font-weight:700;color:#94a3b8;letter-spacing:.06em;margin-bottom:4px;">
+        ESTIMATED RECOVERY TIME
+      </div>
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <span class="rv-days">{{ rv.days_rounded }}</span>
+        <span style="font-size:1rem;color:#64748b;font-weight:600;">days</span>
+        <span class="rv-badge">{{ cat.label }} Recovery</span>
+        <span style="font-size:.78rem;color:#94a3b8;">{{ rv.risk_level }} risk · {{ rv.primary_type }}</span>
+      </div>
+      <div style="font-size:.82rem;color:#64748b;margin-top:4px;">
+        {% if cat.label == 'Fast' %}Typically resolves within a week with standard care.
+        {% elif cat.label == 'Moderate' %}Requires monitoring and possible medication adjustment.
+        {% else %}Extended care and specialist follow-up recommended.{% endif %}
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;min-width:160px;">
+      <div style="font-size:.72rem;font-weight:700;color:#94a3b8;margin-bottom:2px;">RECOVERY SCALE</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="rv-dot-fast" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+        <span class="rv-scale-label {% if cat.label == 'Fast' %}rv-scale-active{% else %}rv-scale-muted{% endif %}">Fast &lt;5 days</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="rv-dot-mod" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+        <span class="rv-scale-label {% if cat.label == 'Moderate' %}rv-scale-active{% else %}rv-scale-muted{% endif %}">Moderate 5–10 days</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="rv-dot-slow" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;"></div>
+        <span class="rv-scale-label {% if cat.label == 'Slow' %}rv-scale-active{% else %}rv-scale-muted{% endif %}">Slow &gt;10 days</span>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- ECG Plot -->
+<div class="card section-gap">
+  <div class="card-title"><i class="fas fa-wave-square" style="color:#3b82f6"></i> ECG Signal with Beat Annotations</div>
+  <div class="card-sub">Colored markers indicate predicted beat class · hover for details</div>
+  <div id="ecg-plotly" style="width:100%;height:280px;"></div>
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;">
+    {% for cls, color in [('N','#22c55e'),('S','#f59e0b'),('V','#ef4444'),('F','#8b5cf6'),('Q','#94a3b8')] %}
+    <div style="display:flex;align-items:center;gap:5px;font-size:0.78rem;">
+      <div style="width:10px;height:10px;border-radius:50%;background:{{ color }}"></div>
+      <span class="badge badge-{{ cls }}">{{ cls }}</span>
+      <span class="text-muted">{{ data.class_labels[cls] }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Pie + RR + Beat Distribution -->
+<div class="grid-2 section-gap">
+  <div class="card">
+    <div class="card-title"><i class="fas fa-chart-pie" style="color:#8b5cf6"></i> Beat Distribution</div>
+    <div class="card-sub">Proportion of each arrhythmia class</div>
+    {% if data.pie_img %}
+    <img src="data:image/png;base64,{{ data.pie_img }}" class="chart-img"/>
+    {% endif %}
+    <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">
+      {% for cls, cnt in data.beat_counts.items() %}
+      {% set pct = (cnt / data.total_beats * 100) | round(1) %}
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:0.82rem;font-weight:600;"><span class="badge badge-{{ cls }}">{{ cls }}</span> {{ data.class_labels[cls] }}</span>
+          <span style="font-size:0.82rem;color:var(--muted);">{{ cnt }} ({{ pct }}%)</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" style="width:{{ pct }}%;background:{{ data.class_colors[cls] }};"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><i class="fas fa-chart-line" style="color:#6366f1"></i> RR Interval Tachogram</div>
+    <div class="card-sub">Beat-to-beat interval variability</div>
+    {% if data.rr_img %}
+    <img src="data:image/png;base64,{{ data.rr_img }}" class="chart-img"/>
+    {% endif %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;">
+      {% for label, val in [('Mean RR', data.hrv.mean_rr ~ ' ms'), ('SDNN', data.hrv.sdnn ~ ' ms'), ('RMSSD', data.hrv.rmssd ~ ' ms'), ('Heart Rate', data.hrv.hr ~ ' bpm')] %}
+      <div style="background:#f8fafc;border-radius:8px;padding:10px 12px;">
+        <div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;">{{ label }}</div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-top:2px;">{{ val }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Beat Morphology Heatmap -->
+{% if data.heat_img %}
+<div class="card section-gap">
+  <div class="card-title"><i class="fas fa-fire" style="color:#ef4444"></i> Beat Morphology Analysis</div>
+  <div class="card-sub">3-panel clinical visualization — overlay of all beat waveforms by class · amplitude heatmap per beat · per-beat anomaly score with threshold line. Abnormal beats are outlined and labeled.</div>
+  <img src="data:image/png;base64,{{ data.heat_img }}" class="chart-img" style="margin-top:8px;"/>
+  <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:12px;">
+    <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;">
+      <div style="width:24px;height:10px;background:linear-gradient(to right,#3b82f6,#f8fafc,#ef4444);border-radius:3px;"></div>
+      <span class="text-muted">Blue = below normal · Red = above normal</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:0.78rem;">
+      <div style="width:20px;height:2px;background:#94a3b8;border-top:2px dashed #94a3b8;"></div>
+      <span class="text-muted">Dashed row = abnormal beat detected</span>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Beat-by-Beat Table -->
+<div class="card section-gap">  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+    <div>
+      <div class="card-title"><i class="fas fa-table" style="color:#f59e0b"></i> Beat-by-Beat Classification</div>
+      <div class="card-sub">All {{ data.total_beats }} detected beats with confidence scores</div>
+    </div>
+    <a href="/report" class="btn btn-primary"><i class="fas fa-download"></i> Download Report</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th><th>Sample</th><th>Time (s)</th>
+          <th>Class</th><th>Label</th><th>Confidence</th>
+          <th>Risk</th>
+          {% for cls in data.classes %}<th>P({{ cls }})</th>{% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in range(data.peaks | length) %}
+        {% set cls = data.predictions[i] %}
+        {% set conf = data.confidences[i] %}
+        {% set risk = {'N':'Low','S':'Moderate','V':'High','F':'Moderate','Q':'Low'}[cls] %}
+        <tr>
+          <td style="color:var(--muted);">{{ i+1 }}</td>
+          <td>{{ data.peaks[i] }}</td>
+          <td>{{ "%.3f"|format(data.time[data.peaks[i]] if data.peaks[i] < data.time|length else 0) }}</td>
+          <td><span class="badge badge-{{ cls }}">{{ cls }}</span></td>
+          <td style="font-size:0.82rem;">{{ data.class_labels[cls] }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="progress-bar-wrap" style="width:60px;">
+                <div class="progress-bar" style="width:{{ conf }}%;background:{{ data.class_colors[cls] }};"></div>
+              </div>
+              <span style="font-size:0.8rem;font-weight:600;">{{ conf }}%</span>
+            </div>
+          </td>
+          <td><span class="badge badge-{{ risk | lower }}">{{ risk }}</span></td>
+          {% for p in data.all_probs[i] %}<td style="font-size:0.78rem;color:var(--muted);">{{ p }}%</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const time   = {{ data.time | tojson }};
+const signal = {{ data.signal | tojson }};
+const peaks  = {{ data.peaks | tojson }};
+const preds  = {{ data.predictions | tojson }};
+const confs  = {{ data.confidences | tojson }};
+const colors = {{ data.class_colors | tojson }};
+
+const peakX = peaks.map(i => time[i]);
+const peakY = peaks.map(i => signal[i]);
+const markerColors = preds.map(p => colors[p]);
+
+Plotly.newPlot('ecg-plotly', [
+  { x: time, y: signal, type: 'scatter', mode: 'lines',
+    line: { color: '#3b82f6', width: 1 }, name: 'ECG Signal' },
+  { x: peakX, y: peakY, type: 'scatter', mode: 'markers',
+    marker: { color: markerColors, size: 8, line: { color: 'white', width: 1 } },
+    name: 'Beats',
+    text: preds.map((p,i) => `${p} · ${confs[i]}%`),
+    hovertemplate: '<b>%{text}</b><br>Time: %{x:.3f}s<extra></extra>' }
+], {
+  paper_bgcolor: '#ffffff', plot_bgcolor: '#f8fafc',
+  font: { color: '#1e293b', size: 11 },
+  xaxis: { title: 'Time (s)', gridcolor: '#e2e8f0', color: '#64748b' },
+  yaxis: { title: 'Amplitude (mV)', gridcolor: '#e2e8f0', color: '#64748b' },
+  margin: { t: 10, r: 10, b: 40, l: 55 },
+  legend: { bgcolor: '#ffffff', bordercolor: '#e2e8f0', borderwidth: 1 }
+}, { responsive: true });
+</script>
+{% endblock %}
